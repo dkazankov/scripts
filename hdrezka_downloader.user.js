@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         HDRezka Video Downloader
-// @version      1.0.0.2
+// @version      1.0.0.3
 // @description  Remastered 'HDrezka Helper 4.2.0.1' by 'Super Zombi', video downloader only. Adds a 'Download' (green) button below the video
 // @author       Dmytro Kazankov
 // @match        https://hdrezka.cm/*
@@ -430,19 +430,25 @@
 		removeOldLinks(list.firstElementChild)
 		removeOldLinks(summary.nextElementSibling)
 
-		let season, episode;
+		const template = GM_getValue("filename_structure")
+		const info = {}
 		let element = document.querySelector('#simple-episodes-tabs .active')
 		if (element) {
-			season = element.getAttribute('data-season_id')
-			episode = element.getAttribute('data-episode_id')
+			info.season = element.getAttribute('data-season_id')
+			info.episode = element.getAttribute('data-episode_id')
 		}
-		let translation;
 		element = document.querySelector('#translators-list .active')
 		if (element) {
-			translation = element.innerText.trim()
+			info.translation = element.innerText.trim()
 		}
-		//const name = document.querySelector('.b-content__main .b-post__title').innerText
-		const name = document.querySelector('.b-content__main .b-post__origtitle').innerText.trim()
+		element = document.querySelector('.b-content__main .b-post__title')
+		if (element) {
+			info.title = element.innerText.trim()
+		}
+		element = document.querySelector('.b-content__main .b-post__origtitle')
+		if (element) {
+			info.originalTitle = element.innerText.trim()
+		}
 
 		if (CDNPlayerInfo.streams) {
 			let streams = []
@@ -456,9 +462,14 @@
 				const quality = temp[0]
 				const links = temp[1].split(' or ')
 				const link = links[1]
-				const size = await getFileSize(link)
-				const fileName = buildFileName(name, season, episode, translation, quality)
-				const a = makeDownloadLink(link, fileName, 'video/mp4', quality, formatBytes(size, 1))
+				const fileName = instantiateTemplate(template, {...info, title: info.originalTitle, resolution: quality})
+				let size = 0
+				try {
+					size = await getRemoteFileSize(link)
+				} catch (error) {
+					console.error('Error getting size for '+link, error)
+				}
+				const a = createDownloadLink(link, fileName, 'video/mp4', quality, formatBytes(size, 1))
 				list.appendChild(a)
 			}
 			if ( streams.length === 0 ) {
@@ -473,9 +484,14 @@
 				const temp = subtitle.split('[')[1].split(']')
 				const lang = temp[0]
 				const link = temp[1]
-				const size = await getFileSize(link)
-				const fileName = buildFileName(name, season, episode, lang)
-				const a = makeDownloadLink(link, fileName, 'text/vtt', lang, formatBytes(size, 1))
+				const fileName = instantiateTemplate(template, {...info, title: info.originalTitle, translation: lang, resolution: null})
+				let size = 0
+				try {
+					size = await getRemoteFileSize(link)
+				} catch (error) {
+					console.error('Error getting size for '+link, error)
+				}
+				const a = createDownloadLink(link, fileName, 'text/vtt', lang, formatBytes(size, 1))
 				details.appendChild(a)
 			}
 			summary.lastElementChild.innerText = ''+subtitles.length
@@ -499,27 +515,7 @@
 				element = next
 			}
 		}
-		function buildFileName(title, season, episode, translation, resolution) {
-			let temp = GM_getValue("filename_structure")
-			if (temp) {
-				for (const [key, value] of Object.entries({
-					title,
-					season,
-					episode,
-					translation,
-					resolution
-				})) {
-					temp = temp.replaceAll('%'+key, (value !== undefined? value: ''))
-				}
-				temp = temp.replaceAll(':', '')
-				temp = temp.replaceAll('/', '')
-				temp = temp.replaceAll(' ', '_')
-				return temp
-			} else {
-				return ''
-			}
-		}
-		function makeDownloadLink(href, fileName, type, title, size) {
+		function createDownloadLink(href, fileName, type, title, size) {
 			const fragment = document.createElement('div')
 			fragment.innerHTML =
 			`<a href="${href}" target="_blank" download="${fileName}" title="${getResourceText('downloadLinkDesc')}" type="${type}" style="display: block;
@@ -555,51 +551,47 @@
 					types.push({ description: 'VTT subtitles', accept: { 'text/vtt': ['.vtt'] } })
 				}
 
+				startFileDownloader()
+
 				// Downloader 2.1
-				//const handle = await window.showSaveFilePicker.call(window.Target, { suggestedName: a.download }) // window is Proxy
-				unsafeWindow.showSaveFilePicker({ suggestedName: a.download + extension, types })
-					.then(handle => {
+				async function startFileDownloader() {
+					try {
+						const handle = await unsafeWindow.showSaveFilePicker({ suggestedName: a.download + extension, types })
+
 						const controller = new AbortController()
-						const area = createControl(controller)
+						const area = createDownloaderControl(controller)
 						a.appendChild(area)
 						const progress = area.firstElementChild
 						const percentage = progress.nextElementSibling
 
-						download(a.href, handle, controller, (percent) => {
-							progress.value = percent;
-							percentage.innerText = percent + "%"
-						})
-							.then(() => {
-								setTimeout(() => {
-									area.remove()
-									//a.style.background = null
-									a.classList.remove('downloading')
-								}, 1000)
-							})
-							.catch(error => {
-								if (error.name !== 'AbortError') {
-									console.error(error)
-								}
-								setTimeout(() => {
-									area.remove()
-									//a.style.background = null
-									a.classList.remove('downloading')
-								}, 1000)
-								if (error.name === 'AbortError') {
-									const name = handle.name
-									handle.remove()
-									console.error('File download aborted, file "'+name+'" removed')
+						try {
+							await downloadFile(a.href, handle, {
+								signal: controller.signal, onprogress: ({percent}) => {
+									progress.value = percent;
+									percentage.innerText = percent + "%"
 								}
 							})
-					})
-					.catch(error => {
+						} catch (error) {
+							if (error.name !== 'AbortError') {
+								console.error(error)
+							}
+							if (error.name === 'AbortError') {
+								const name = handle.name
+								handle.remove()
+								console.error('File download aborted, file "'+name+'" removed')
+							}
+						}
+						area.remove()
+						//a.style.background = null
+						a.classList.remove('downloading')
+					} catch (error) {
 						if (error.name !== 'AbortError') {
 							console.error(error)
 						}
 						a.classList.remove('downloading')
-					})
-
-				function createControl(abortController) {
+					}
+				}
+				function createDownloaderControl(abortController) {
 					const fragment = document.createElement('div')
 					fragment.innerHTML =
 					`<span class="download-area" style="display: flex; align-items: center; padding: 6px 0;">
@@ -609,13 +601,12 @@
 						<button style="margin-left: 5px; border-radius: 50px; border: 2px solid transparent; height: 20px; width: 20px; display: flex;
 							align-items: center; justify-content: center; color: red; transition: 0.25s;" title="${getResourceText('cancelDownload')}">X</button>
 					</span>`
-
+			
 					const area = fragment.firstElementChild
 					const closeButton = area.lastElementChild
-
+			
 					closeButton.onclick = () => {
 						abortController.abort()
-						//onAbort()
 					}
 					closeButton.onmouseover = () => {
 						closeButton.style.borderColor = "red"
@@ -625,62 +616,66 @@
 					}
 					return area
 				}
-
-				async function download(href, handle, abortController, onprogress) {
-					const signal = abortController.signal
-
-					const response = await fetch(href, { signal })
-					if (!response.ok) {
-						throw new Error(response.statusText, { cause: response.status })
-					}
-					const length = +response.headers.get('content-length')
-					let countBytes = 0
-					let countChunks = 0
-					const writable = await handle.createWritable()
-					await response.body
-						.pipeThrough(new TransformStream({
-							transform(chunk, controller) {
-								controller.enqueue(chunk)
-								if ( onprogress ) {
-									countChunks++
-									countBytes += chunk.byteLength
-
-									const percent = ( length === 0? countChunks: Math.round(100 * countBytes / length) )
-									onprogress( Math.min(percent, 100) )
-								}
-							}
-						}), { signal })
-						.pipeTo(writable, { signal })
-				}
 			}
 			return a
 		}
+	}
 
-		function clearTrash(data) {
-			let trashString = data.replace('#h', '').split('//_//').join('')
-			for (const element of trashCodesSet) {
-				trashString = trashString.replaceAll(btoa(element), '')
+	function clearTrash(data) {
+		let trashString = data.replace('#h', '').split('//_//').join('')
+		for (const element of trashCodesSet) {
+			trashString = trashString.replaceAll(btoa(element), '')
+		}
+		return atob(trashString)
+	}
+	function formatBytes(bytes, decimals = 2) {
+		if (bytes === NaN) return 'Unknown'
+		if (bytes === 0) return '0 Bytes'
+		const k = 1024
+		const dm = decimals < 0 ? 0 : decimals
+		const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
+		const i = Math.floor(Math.log(bytes) / Math.log(k))
+		return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i]
+	}
+	function instantiateTemplate(template, values) {
+		let instance = ''
+		if (!template) {
+			return instance
+		}
+		instance = template
+		for (const key in values) {
+			const value = values[key]
+			instance = instance.replaceAll('%'+key, (value? value: ''))
+		}
+		return instance.replaceAll(':', '_').replaceAll('/', '_').replaceAll('.', '_').replaceAll(' ', '_')
+	}
+
+	async function getRemoteFileSize(url) {
+		const response = await fetch(url, { method: 'HEAD' })
+		const size = response.headers.get('content-length')
+		return +size
+	}
+	async function downloadFile(url, handle, {signal, onprogress}) {
+		const response = await fetch(url, {signal})
+		if (!response.ok) {
+			throw new Error(response.statusText, { cause: response.status })
+		}
+		const writable = await handle.createWritable()
+		const length = +response.headers.get('content-length')
+		let countBytes = 0
+		let countChunks = 0
+		const transform = new TransformStream({
+			transform(chunk, controller) {
+				controller.enqueue(chunk)
+				if ( onprogress ) {
+					countChunks++
+					countBytes += chunk.byteLength
+
+					const percent = ( length === 0? countChunks: Math.round(100 * countBytes / length) )
+					onprogress({ percent: Math.min(percent, 100), bytes: countBytes, chunks: countChunks })
+				}
 			}
-			return atob(trashString)
-		}
-		async function getFileSize(url) {
-			try {
-				const response = await fetch(url, { method: 'HEAD' })
-				const fileSize = response.headers.get('content-length')
-				return +fileSize
-			} catch (error) {
-				console.error('Error getting file size', error)
-				return 0
-			}
-		}
-		function formatBytes(bytes, decimals = 2) {
-			if (bytes === NaN) return 'Unknown'
-			if (bytes === 0) return '0 Bytes'
-			const k = 1024
-			const dm = decimals < 0 ? 0 : decimals
-			const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
-			const i = Math.floor(Math.log(bytes) / Math.log(k))
-			return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i]
-		}
+		})
+		await response.body.pipeThrough(transform, {signal}).pipeTo(writable, {signal})
 	}
 })()
