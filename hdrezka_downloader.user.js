@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         HDRezka Video Downloader
-// @version      1.0.0.6
+// @version      1.0.0.7
 // @description  Remastered 'HDrezka Helper 4.2.0.1' by 'Super Zombi', video downloader only. Adds a 'Download' (green) button below the video
 // @author       Dmytro Kazankov
 // @match        https://hdrezka.cm/*
@@ -467,19 +467,21 @@
                     i++
                     const url = new URL(link.trim())
                     //console.log("link "+link)
-                    let size = 0
-                    try {
-                        size = await getRemoteFileSize(url)
-                    } catch (error) {
-                        console.error('Error getting size for '+link, error)
-                        size = 0
-                    }
-                    const a = createDownloadLink(url, fileName, 'video/mp4', quality + " #" + i + " @" + url.hostname, formatBytes(size, 1))
+                    const a = await createDownloadLink(url, fileName, 'video/mp4', quality + " #" + i + " @" + url.hostname, async (element) => {
+                        let size = 0
+                        try {
+                            size = await getRemoteFileSize(url)
+                        } catch (error) {
+                            console.error('Error getting size for '+link, error)
+                            size = 0
+                        }
+                        element.innerHTML = `<span style="float: right;">${formatBytes(size, 1)}</span>`
+                    })
                     list.appendChild(a)
                 }
 			}
 			if ( streams.length === 0 ) {
-				const a = createDownloadLink(CDNPlayerInfo.streams, '', '', 'Incorrect streams', '')
+				const a = await createDownloadLink(CDNPlayerInfo.streams, '', '', 'Incorrect streams')
 				list.appendChild(a)
 			}
 		}
@@ -497,7 +499,16 @@
 				} catch (error) {
 					console.error('Error getting size for '+link, error)
 				}
-				const a = createDownloadLink(link, fileName, 'text/vtt', lang, formatBytes(size, 1))
+				const a = await createDownloadLink(link, fileName, 'text/vtt', lang, async (element) => {
+                    let size = 0
+                    try {
+                        size = await getRemoteFileSize(url)
+                    } catch (error) {
+                        console.error('Error getting size for '+link, error)
+                        size = 0
+                    }
+                    element.innerHTML = `<span style="float: right;">${formatBytes(size, 1)}</span>`
+                })
 				details.appendChild(a)
 			}
 			summary.lastElementChild.innerText = ''+subtitles.length
@@ -521,15 +532,27 @@
 				element = next
 			}
 		}
-		function createDownloadLink(href, fileName, type, title, size) {
+		async function createDownloadLink(href, fileName, type, title, updateSize) {
 			const fragment = document.createElement('div')
 			fragment.innerHTML =
 			`<a href="${href}" target="_blank" download="${fileName}" title="${getResourceText('downloadLinkDesc')}" type="${type}" style="display: block;
 					color: white; text-decoration: none; padding: 4px 5px; margin: 2px 0; border-radius: 6px; transition: 0.2s; cursor: pointer;">
 				<span>${title}</span>
-				<span style="float: right;">${size}</span>
+				<span style="float: right;">
+				<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 100 100" height="50px" style="margin:auto; display:block;" >
+					<g transform="translate(25 50)">
+						<circle cx="0" cy="0" r="6" fill="lightblue"><animateTransform attributeName="transform" type="scale" begin="-0.3333333333333333s" calcMode="spline" keySplines="0.3 0 0.7 1;0.3 0 0.7 1" values="0;1;0" keyTimes="0;0.5;1" dur="1s" repeatCount="indefinite"></animateTransform></circle>
+					</g>
+					<g transform="translate(50 50)">
+						<circle cx="0" cy="0" r="6" fill="lightblue"><animateTransform attributeName="transform" type="scale" begin="-0.16666666666666666s" calcMode="spline" keySplines="0.3 0 0.7 1;0.3 0 0.7 1" values="0;1;0" keyTimes="0;0.5;1" dur="1s" repeatCount="indefinite"></animateTransform></circle>
+					</g>
+					<g transform="translate(75 50)">
+						<circle cx="0" cy="0" r="6" fill="lightblue"><animateTransform attributeName="transform" type="scale" begin="0s" calcMode="spline" keySplines="0.3 0 0.7 1;0.3 0 0.7 1" values="0;1;0" keyTimes="0;0.5;1" dur="1s" repeatCount="indefinite"></animateTransform></circle>
+					</g>
+				</svg>
+                </span>
 			</a>`
-			const a = fragment.firstElementChild
+            const a = fragment.firstElementChild
 			a.onmouseover = () => {
 				a.style.background = 'rgb(0, 0, 255, 0.75)'
 			}
@@ -620,6 +643,9 @@
 					return area
 				}
 			}
+            if (updateSize) {
+                updateSize(a.lastElementChild)
+            }
 			return a
 		}
 	}
