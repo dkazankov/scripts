@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         HDRezka Video Downloader
-// @version      1.0.0.5
+// @version      1.0.0.6
 // @description  Remastered 'HDrezka Helper 4.2.0.1' by 'Super Zombi', video downloader only. Adds a 'Download' (green) button below the video
 // @author       Dmytro Kazankov
 // @match        https://hdrezka.cm/*
@@ -462,7 +462,9 @@
 				const quality = temp[0]
 				const links = temp[1].split(' or ')
 				const fileName = instantiateTemplate(template, {...info, title: info.originalTitle, resolution: quality})
+                let i = 0
                 for (const link of links) {
+                    i++
                     const url = new URL(link.trim())
                     //console.log("link "+link)
                     let size = 0
@@ -472,7 +474,7 @@
                         console.error('Error getting size for '+link, error)
                         size = 0
                     }
-                    const a = createDownloadLink(url, fileName, 'video/mp4', quality + "@" + url.hostname, formatBytes(size, 1))
+                    const a = createDownloadLink(url, fileName, 'video/mp4', quality + " #" + i + " @" + url.hostname, formatBytes(size, 1))
                     list.appendChild(a)
                 }
 			}
