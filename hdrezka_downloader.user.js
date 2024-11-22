@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         HDRezka Video Downloader
-// @version      1.0.0.4
+// @version      1.0.0.5
 // @description  Remastered 'HDrezka Helper 4.2.0.1' by 'Super Zombi', video downloader only. Adds a 'Download' (green) button below the video
 // @author       Dmytro Kazankov
 // @match        https://hdrezka.cm/*
@@ -330,7 +330,7 @@
 		if (!menu) {
 			const fragment = document.createElement('div')
 			fragment.innerHTML =
-			`<div id="HDRezkaDownloaderDownloadMenu" style="display: none; min-height: 50px; width: 160px; background: rgba(93, 93, 93, 0.5); backdrop-filter: blur(5px);
+			`<div id="HDRezkaDownloaderDownloadMenu" style="display: none; min-height: 50px; width: 350px; background: rgba(93, 93, 93, 0.5); backdrop-filter: blur(5px);
 					position: absolute; border-radius: 6px; padding: 4px; filter: drop-shadow(black 2px 4px 6px); z-index: 100; right: 0; top: 55px; opacity: 0;
 					transform: scale(0); transform-origin: top center; transition: 0.5s;">
 				<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 100 100" height="50px" style="margin:auto; display:block;" >
@@ -461,37 +461,23 @@
 				const temp = stream.split('[')[1].split(']')
 				const quality = temp[0]
 				const links = temp[1].split(' or ')
-				let link = links[links.length-1].trim()
 				const fileName = instantiateTemplate(template, {...info, title: info.originalTitle, resolution: quality})
-				let size = 0
-                try {
-                    size = await getRemoteFileSize(link)
-                } catch (error) {
-                    console.error('Error getting size for '+link, error)
-                    size = 0
-                }
-                if ( links.length == 2 ) {
-                    if ( links[0] == links[1] ) {
-                        link = links[0].trim()
-                        //console.log("1 link "+links[0])
+                for (const link of links) {
+                    const url = new URL(link.trim())
+                    //console.log("link "+link)
+                    let size = 0
+                    try {
+                        size = await getRemoteFileSize(url)
+                    } catch (error) {
+                        console.error('Error getting size for '+link, error)
+                        size = 0
                     }
-                    else {
-                        //console.log("1 link "+links[0])
-                        //console.log("2 link "+links[1])
-                        link = links.includes("ukr")? links[0].trim(): links[1].trim()
-                    }
+                    const a = createDownloadLink(url, fileName, 'video/mp4', quality + "@" + url.hostname, formatBytes(size, 1))
+                    list.appendChild(a)
                 }
-                else {
-                    link = links[links.length-1].trim()
-                    //for (const link1 of links) {
-                    //    console.log("link "+link1)
-                    //}
-                }
-				const a = createDownloadLink(link, fileName, 'video/mp4', quality, formatBytes(size, 1))
-				list.appendChild(a)
 			}
 			if ( streams.length === 0 ) {
-				const a = makeDownloadLink(CDNPlayerInfo.streams, '', '', 'Incorrect streams', '')
+				const a = createDownloadLink(CDNPlayerInfo.streams, '', '', 'Incorrect streams', '')
 				list.appendChild(a)
 			}
 		}
