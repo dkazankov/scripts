@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         HDRezka Video Downloader
-// @version      1.0.0.3
+// @version      1.0.0.4
 // @description  Remastered 'HDrezka Helper 4.2.0.1' by 'Super Zombi', video downloader only. Adds a 'Download' (green) button below the video
 // @author       Dmytro Kazankov
 // @match        https://hdrezka.cm/*
@@ -165,7 +165,6 @@
 						</details>
 					</span>
 				</div>
-				
 				<hr style="border-top: 1px solid #dfe1e8; margin: 0.5em 0;">
 				<button name="save" style="font-size: 14pt; cursor: pointer; border: 5em; outline: none;
 											margin-top: 5px; padding: 0.5em 1.5em; border-radius: 65px;
@@ -375,7 +374,6 @@
 				position: absolute; cursor: pointer; transition: 0.3s; background: #32cd32; color=white;">
 				<img style="height: 40px; width: 40px; padding: 5px; color: white;" src="${GM_getResourceURL('downloadButtonIcon')}"></img>
 			</div>`
-	
 			button = fragment.firstElementChild
 			button.onmouseover = () => {
 				button.style.background = '#013220'
@@ -401,7 +399,6 @@
 				function bodyOnClick(event) {
 					const menu = document.querySelector('#HDRezkaDownloaderDownloadMenu')
 					const button = document.querySelector('#HDRezkaDownloaderDownloadButton')
-			
 					const path = event.path || (event.composedPath && event.composedPath());
 					if (!path.includes(menu) && !path.includes(button)) {
 						document.body.removeEventListener('click', bodyOnClick)
@@ -451,24 +448,45 @@
 		}
 
 		if (CDNPlayerInfo.streams) {
+            //console.log("CDNPlayerInfo.streams "+CDNPlayerInfo.streams)
 			let streams = []
 			try {
-				streams = clearTrash(CDNPlayerInfo.streams).split(',')
+				streams = decodeStreamUrls(CDNPlayerInfo.streams)
 			} catch (error) {
 				console.error('Cannot decode streams url', CDNPlayerInfo.streams, error)
 			}
+            //console.log("streams "+streams)
+            streams = streams.split(',')
 			for (const stream of streams) {
 				const temp = stream.split('[')[1].split(']')
 				const quality = temp[0]
 				const links = temp[1].split(' or ')
-				const link = links[1]
+				let link = links[links.length-1].trim()
 				const fileName = instantiateTemplate(template, {...info, title: info.originalTitle, resolution: quality})
 				let size = 0
-				try {
-					size = await getRemoteFileSize(link)
-				} catch (error) {
-					console.error('Error getting size for '+link, error)
-				}
+                try {
+                    size = await getRemoteFileSize(link)
+                } catch (error) {
+                    console.error('Error getting size for '+link, error)
+                    size = 0
+                }
+                if ( links.length == 2 ) {
+                    if ( links[0] == links[1] ) {
+                        link = links[0].trim()
+                        //console.log("1 link "+links[0])
+                    }
+                    else {
+                        //console.log("1 link "+links[0])
+                        //console.log("2 link "+links[1])
+                        link = links.includes("ukr")? links[0].trim(): links[1].trim()
+                    }
+                }
+                else {
+                    link = links[links.length-1].trim()
+                    //for (const link1 of links) {
+                    //    console.log("link "+link1)
+                    //}
+                }
 				const a = createDownloadLink(link, fileName, 'video/mp4', quality, formatBytes(size, 1))
 				list.appendChild(a)
 			}
@@ -523,7 +541,6 @@
 				<span>${title}</span>
 				<span style="float: right;">${size}</span>
 			</a>`
-	
 			const a = fragment.firstElementChild
 			a.onmouseover = () => {
 				a.style.background = 'rgb(0, 0, 255, 0.75)'
@@ -601,10 +618,8 @@
 						<button style="margin-left: 5px; border-radius: 50px; border: 2px solid transparent; height: 20px; width: 20px; display: flex;
 							align-items: center; justify-content: center; color: red; transition: 0.25s;" title="${getResourceText('cancelDownload')}">X</button>
 					</span>`
-			
 					const area = fragment.firstElementChild
 					const closeButton = area.lastElementChild
-			
 					closeButton.onclick = () => {
 						abortController.abort()
 					}
@@ -621,7 +636,7 @@
 		}
 	}
 
-	function clearTrash(data) {
+	function decodeStreamUrls(data) {
 		let trashString = data.replace('#h', '').split('//_//').join('')
 		for (const element of trashCodesSet) {
 			trashString = trashString.replaceAll(btoa(element), '')
