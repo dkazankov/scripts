@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         HDRezka Video Downloader
-// @version      1.0.0.7
+// @version      1.0.0.8
 // @description  Remastered 'HDrezka Helper 4.2.0.1' by 'Super Zombi', video downloader only. Adds a 'Download' (green) button below the video
 // @author       Dmytro Kazankov
 // @match        https://hdrezka.cm/*
@@ -8,6 +8,7 @@
 // @match        https://hdrezka.me/*
 // @match        https://hdrezka.ag/*
 // @match        https://hdrezka.co/*
+// @match        https://rezka-ua.in/*
 // @iconURL      https://rezka.cc/assets/images/favicon.ico
 // @homepageURL  https://github.com/dkazankov/scripts
 // @supportURL   https://github.com/dkazankov/scripts/issues
