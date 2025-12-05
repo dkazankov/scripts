@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         HDRezka Video Downloader
-// @version      1.0.0.8
+// @version      1.0.0.9
 // @description  Remastered 'HDrezka Helper 4.2.0.1' by 'Super Zombi', video downloader only. Adds a 'Download' (green) button below the video
 // @author       Dmytro Kazankov
 // @match        https://hdrezka.cm/*
@@ -9,6 +9,7 @@
 // @match        https://hdrezka.ag/*
 // @match        https://hdrezka.co/*
 // @match        https://rezka-ua.in/*
+// @match        https://rezka-ua.co/*
 // @iconURL      https://rezka.cc/assets/images/favicon.ico
 // @homepageURL  https://github.com/dkazankov/scripts
 // @supportURL   https://github.com/dkazankov/scripts/issues
@@ -327,11 +328,11 @@
 		const sendVideoIssue = document.getElementById('send-video-issue')
 		const parentNode = sendVideoIssue.parentNode
 
-		let menu = document.querySelector('#HDRezkaDownloaderDownloadMenu')
+		let menu = document.querySelector('#MyDownloaderDownloadMenu')
 		if (!menu) {
 			const fragment = document.createElement('div')
 			fragment.innerHTML =
-			`<div id="HDRezkaDownloaderDownloadMenu" style="display: none; min-height: 50px; width: 350px; background: rgba(93, 93, 93, 0.5); backdrop-filter: blur(5px);
+			`<div id="MyDownloaderDownloadMenu" style="display: none; min-height: 50px; width: 350px; background: rgba(93, 93, 93, 0.5); backdrop-filter: blur(5px);
 					position: absolute; border-radius: 6px; padding: 4px; filter: drop-shadow(black 2px 4px 6px); z-index: 100; right: 0; top: 55px; opacity: 0;
 					transform: scale(0); transform-origin: top center; transition: 0.5s;">
 				<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 100 100" height="50px" style="margin:auto; display:block;" >
@@ -367,11 +368,11 @@
 			parentNode.insertBefore(menu, sendVideoIssue);
 		}
 
-		let button = document.querySelector('#HDRezkaDownloaderDownloadButton')
+		let button = document.querySelector('#MyDownloaderDownloadButton')
 		if (!button) {
 			const fragment = document.createElement('div')
 			fragment.innerHTML =
-			`<div id="HDRezkaDownloaderDownloadButton" title="${getResourceText('downloadStr')}" style="right: 55px; top: 0; height: 50px; width: 50px;
+			`<div id="MyDownloaderDownloadButton" title="${getResourceText('downloadStr')}" style="right: 55px; top: 0; height: 50px; width: 50px;
 				position: absolute; cursor: pointer; transition: 0.3s; background: #32cd32; color=white;">
 				<img style="height: 40px; width: 40px; padding: 5px; color: white;" src="${GM_getResourceURL('downloadButtonIcon')}"></img>
 			</div>`
@@ -383,7 +384,7 @@
 				button.style.background = '#32cd32'
 			}
 			button.onclick = () => {
-				const menu = document.querySelector('#HDRezkaDownloaderDownloadMenu')
+				const menu = document.querySelector('#MyDownloaderDownloadMenu')
 				if (menu.style.display === 'none') {
 					resetDownloaderList().then(() => {
 						menu.style.transform = 'scale(1)'
@@ -398,8 +399,8 @@
 					document.body.removeEventListener('click', bodyOnClick)
 				}
 				function bodyOnClick(event) {
-					const menu = document.querySelector('#HDRezkaDownloaderDownloadMenu')
-					const button = document.querySelector('#HDRezkaDownloaderDownloadButton')
+					const menu = document.querySelector('#MyDownloaderDownloadMenu')
+					const button = document.querySelector('#MyDownloaderDownloadButton')
 					const path = event.path || (event.composedPath && event.composedPath());
 					if (!path.includes(menu) && !path.includes(button)) {
 						document.body.removeEventListener('click', bodyOnClick)
@@ -419,7 +420,7 @@
 		}
 		srcChanged = false
 
-		const menu = document.querySelector('#HDRezkaDownloaderDownloadMenu')
+		const menu = document.querySelector('#MyDownloaderDownloadMenu')
 		const svg = menu.firstElementChild
 		const list = svg.nextElementSibling
 		const details = menu.lastElementChild
